@@ -77,6 +77,7 @@ export interface Database {
           location: string | null;
           status: VehicleStatus;
           published: boolean;
+          deleted_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -120,6 +121,7 @@ export interface Database {
           email: string;
           message: string | null;
           status: InquiryStatus;
+          deleted_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -130,7 +132,7 @@ export interface Database {
           email: string;
           message?: string | null;
         };
-        Update: Partial<{ status: InquiryStatus }>;
+        Update: Partial<{ status: InquiryStatus; deleted_at: string | null }>;
         Relationships: NoRelationships;
       };
       activity_logs: {

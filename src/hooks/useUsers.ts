@@ -61,10 +61,9 @@ export function useSetUserActive() {
   });
 }
 
-/** Deletes every vehicle. Images cascade automatically (the
- *  vehicle_images FK is ON DELETE CASCADE), and inquiries are preserved
- *  with their vehicle_id set to NULL (ON DELETE SET NULL) so you don't
- *  lose customer leads along with the stock. */
+/** Moves every active vehicle to the recycle bin. Nothing is destroyed —
+ *  photos and inquiry links stay intact, and everything can be restored
+ *  from the רכבים screen's "סל מחזור" tab. */
 export function useDeleteAllVehicles() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -72,15 +71,19 @@ export function useDeleteAllVehicles() {
     mutationFn: async () => {
       const { count: total } = await supabase
         .from("vehicles")
-        .select("id", { count: "exact", head: true });
+        .select("id", { count: "exact", head: true })
+        .is("deleted_at", null);
 
       if (!total) return { deleted: 0 };
 
-      // .neq on a never-null column matches every row; PostgREST requires
-      // some filter on a bulk delete as a safety measure.
+      // Soft delete: everything moves to the recycle bin rather than
+      // being destroyed, so a mis-click is recoverable.
+      // .neq on a never-null column matches every row; PostgREST
+      // requires some filter on a bulk write as a safety measure.
       const { data, error } = await supabase
         .from("vehicles")
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
+        .is("deleted_at", null)
         .neq("id", "00000000-0000-0000-0000-000000000000")
         .select("id");
 
@@ -93,6 +96,32 @@ export function useDeleteAllVehicles() {
         deleted: data.length,
       });
       return { deleted: data.length };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
+/** Permanently destroys everything in the recycle bin. This is the only
+ *  action in the app that actually deletes vehicle data — images cascade
+ *  with it, and inquiries survive with their vehicle link cleared. */
+export function useEmptyRecycleBin() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase
+        .from("vehicles")
+        .delete()
+        .not("deleted_at", "is", null)
+        .select("id");
+      if (error) throw error;
+      await logActivity(user?.id, "RECYCLE_BIN_EMPTIED", "vehicle", undefined, {
+        purged: data?.length ?? 0,
+      });
+      return { purged: data?.length ?? 0 };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vehicles"] });

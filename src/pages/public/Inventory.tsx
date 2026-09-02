@@ -51,11 +51,20 @@ export default function Inventory() {
 
   const selectClass = "h-10 rounded-[var(--radius-card)] border border-[var(--color-steel)] bg-white px-3 text-sm";
   const totalPages = data ? Math.max(1, Math.ceil(data.total / 12)) : 1;
+  // "X רכבים במלאי" is only accurate with no filters applied; once the
+  // list is narrowed the number describes the search, not the stock.
+  const hasFilters = Array.from(searchParams.keys()).some((k) => k !== "page");
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       <h1 className="mb-2 font-[family-name:var(--font-display)] text-2xl">מלאי הרכבים</h1>
-      <p className="mb-6 text-sm text-[var(--color-steel-dark)]">{data ? `${data.total} רכבים נמצאו` : "טוען..."}</p>
+      <p className="mb-6 text-sm text-[var(--color-steel-dark)]">
+        {!data
+          ? "טוען..."
+          : hasFilters
+            ? `${data.total} רכבים תואמים את החיפוש`
+            : `${data.total} רכבים במלאי`}
+      </p>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
         <div className="flex flex-col gap-3 rounded-[var(--radius-card)] border border-[var(--color-steel)] bg-white p-4">

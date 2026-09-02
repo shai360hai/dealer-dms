@@ -1,6 +1,6 @@
 import { useState, useDeferredValue } from "react";
 import { Link } from "react-router";
-import { Plus, Copy, Trash2, Eye, EyeOff, Upload } from "lucide-react";
+import { Plus, Copy, Trash2, Eye, EyeOff, Upload, RotateCcw } from "lucide-react";
 import { Button, Input } from "../../components/ui";
 import { CsvImportDialog } from "../../components/CsvImportDialog";
 import { formatPrice, formatMileage } from "../../lib/format";
@@ -11,6 +11,8 @@ import {
   useSetVehicleStatus,
   useSetPublished,
   useDuplicateVehicle,
+  useRestoreVehicles,
+  useVehicleCounts,
 } from "../../hooks/useVehicles";
 import type { VehicleFilters } from "../../hooks/useVehicles";
 import { pickCoverImage } from "../../lib/angles";
@@ -25,8 +27,18 @@ export default function VehiclesList() {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showImport, setShowImport] = useState(false);
+  const [view, setView] = useState<"active" | "deleted">("active");
 
-  const { data, isLoading, isFetching } = useVehicles({ q: deferredSearch || undefined, status: status || undefined, sort, page, pageSize: 20 });
+  const { data, isLoading, isFetching } = useVehicles({
+    q: deferredSearch || undefined,
+    status: status || undefined,
+    sort,
+    view,
+    page,
+    pageSize: 20,
+  });
+  const { data: counts } = useVehicleCounts();
+  const restoreVehicles = useRestoreVehicles();
   const deleteVehicle = useDeleteVehicle();
   const bulkDelete = useBulkDeleteVehicles();
   const setVehicleStatus = useSetVehicleStatus();
@@ -48,17 +60,18 @@ export default function VehiclesList() {
     <div>
       {showImport && <CsvImportDialog onClose={() => setShowImport(false)} />}
 
-      {(deleteVehicle.isError || bulkDelete.isError) && (
+      {(deleteVehicle.isError || bulkDelete.isError || restoreVehicles.isError) && (
         <div className="mb-4 flex items-start justify-between gap-3 rounded-[var(--radius-card)] bg-[color-mix(in_srgb,var(--color-status-sold)_10%,white)] px-4 py-3 text-sm text-[var(--color-status-sold)]">
           <span>
-            {(deleteVehicle.error ?? bulkDelete.error) instanceof Error
-              ? (deleteVehicle.error ?? bulkDelete.error)?.message
-              : "המחיקה נכשלה"}
+            {(deleteVehicle.error ?? bulkDelete.error ?? restoreVehicles.error) instanceof Error
+              ? (deleteVehicle.error ?? bulkDelete.error ?? restoreVehicles.error)?.message
+              : "הפעולה נכשלה"}
           </span>
           <button
             onClick={() => {
               deleteVehicle.reset();
               bulkDelete.reset();
+              restoreVehicles.reset();
             }}
             aria-label="סגירה"
           >
@@ -68,7 +81,15 @@ export default function VehiclesList() {
       )}
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-[family-name:var(--font-display)] text-2xl">רכבים</h1>
+        <div>
+          <h1 className="font-[family-name:var(--font-display)] text-2xl">רכבים</h1>
+          {counts && (
+            <p className="mt-0.5 text-sm text-[var(--color-steel-dark)]">
+              {counts.active} רכבים במלאי · {counts.published} מפורסמים באתר
+              {counts.deleted > 0 && ` · ${counts.deleted} בסל המחזור`}
+            </p>
+          )}
+        </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setShowImport(true)}>
             <Upload size={16} /> ייבוא מ-CSV
@@ -79,6 +100,29 @@ export default function VehiclesList() {
             </Button>
           </Link>
         </div>
+      </div>
+
+      <div className="mb-4 flex gap-2">
+        {(["active", "deleted"] as const).map((v) => (
+          <button
+            key={v}
+            onClick={() => {
+              setView(v);
+              setPage(1);
+              setSelected(new Set());
+            }}
+            className={`rounded-full px-3 py-1.5 text-sm transition-colors ${
+              view === v ? "bg-[var(--color-navy)] text-white" : "bg-[var(--color-porcelain-dim)] hover:bg-[var(--color-steel)]"
+            }`}
+          >
+            {v === "active" ? "מלאי פעיל" : "סל מחזור"}
+            {counts && (
+              <span className={`ms-1.5 text-xs ${view === v ? "text-white/70" : "text-[var(--color-steel-dark)]"}`}>
+                {v === "active" ? counts.active : counts.deleted}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2">
@@ -116,16 +160,26 @@ export default function VehiclesList() {
       {selected.size > 0 && (
         <div className="mb-3 flex items-center gap-3 rounded-[var(--radius-card)] bg-[var(--color-porcelain-dim)] px-3 py-2 text-sm">
           <span>{selected.size} נבחרו</span>
-          <button
-            onClick={() => {
-              if (confirm("למחוק את הרכבים הנבחרים לצמיתות?")) {
-                bulkDelete.mutate(Array.from(selected), { onSuccess: () => setSelected(new Set()) });
-              }
-            }}
-            className="text-[var(--color-status-sold)] underline"
-          >
-            מחיקת נבחרים
-          </button>
+          {view === "deleted" ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => restoreVehicles.mutate(Array.from(selected), { onSuccess: () => setSelected(new Set()) })}
+            >
+              <RotateCcw size={14} /> שחזור נבחרים
+            </Button>
+          ) : (
+            <button
+              onClick={() => {
+                if (confirm("להעביר את הרכבים הנבחרים לסל המחזור? ניתן לשחזר אותם משם.")) {
+                  bulkDelete.mutate(Array.from(selected), { onSuccess: () => setSelected(new Set()) });
+                }
+              }}
+              className="text-[var(--color-status-sold)] underline"
+            >
+              מחיקת נבחרים
+            </button>
+          )}
         </div>
       )}
 
@@ -186,14 +240,20 @@ export default function VehiclesList() {
                       <button onClick={() => duplicateVehicle.mutate(v.id)} title="שכפול">
                         <Copy size={15} className="text-[var(--color-steel-dark)] hover:text-[var(--color-navy)]" />
                       </button>
-                      <button
-                        onClick={() => {
-                          if (confirm("למחוק את הרכב לצמיתות?")) deleteVehicle.mutate(v.id);
-                        }}
-                        title="מחיקה"
-                      >
-                        <Trash2 size={15} className="text-[var(--color-steel-dark)] hover:text-[var(--color-status-sold)]" />
-                      </button>
+                      {v.deleted_at ? (
+                        <button onClick={() => restoreVehicles.mutate([v.id])} title="שחזור">
+                          <RotateCcw size={15} className="text-[var(--color-steel-dark)] hover:text-[var(--color-navy)]" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            if (confirm("להעביר את הרכב לסל המחזור? ניתן לשחזר אותו משם.")) deleteVehicle.mutate(v.id);
+                          }}
+                          title="מחיקה"
+                        >
+                          <Trash2 size={15} className="text-[var(--color-steel-dark)] hover:text-[var(--color-status-sold)]" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

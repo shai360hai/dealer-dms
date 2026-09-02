@@ -44,19 +44,27 @@ export function useImportVehicles() {
       // let one clash abort a 50-row insert, check what already exists
       // up front and report those rows back instead of failing the batch.
       const stockNumbers = rows.map((r) => r.stock_number);
+      // Deliberately includes soft-deleted rows: stock_number is UNIQUE
+      // at the database level regardless of deleted_at, so a car sitting
+      // in the recycle bin still occupies its number.
       const { data: existing } = await supabase
         .from("vehicles")
-        .select("stock_number")
+        .select("stock_number, deleted_at")
         .in("stock_number", stockNumbers);
 
-      const taken = new Set((existing ?? []).map((v) => v.stock_number));
+      const taken = new Map((existing ?? []).map((v) => [v.stock_number, Boolean(v.deleted_at)]));
 
       const seenInFile = new Set<string>();
       const toInsert: ReturnType<typeof clean>[] = [];
 
       for (const row of rows) {
         if (taken.has(row.stock_number)) {
-          skipped.push({ stockNumber: row.stock_number, reason: "מספר מלאי כבר קיים במערכת" });
+          skipped.push({
+            stockNumber: row.stock_number,
+            reason: taken.get(row.stock_number)
+              ? "קיים רכב עם מספר מלאי זה בסל המחזור — שחזר אותו או מחק לצמיתות"
+              : "מספר מלאי כבר קיים במערכת",
+          });
           continue;
         }
         if (seenInFile.has(row.stock_number)) {

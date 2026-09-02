@@ -16,6 +16,9 @@ export interface VehicleFilters {
   priceMax?: number;
   mileageMax?: number;
   publishedOnly?: boolean;
+  /** "active" (default) hides soft-deleted rows; "deleted" shows only
+   *  them (the recycle bin); "all" shows both. */
+  view?: "active" | "deleted" | "all";
   sort?: "newest" | "oldest" | "price_asc" | "price_desc" | "mileage_asc";
   page?: number;
   pageSize?: number;
@@ -40,7 +43,11 @@ async function fetchVehicles(filters: VehicleFilters) {
   // unions — these values only ever come from our own <select> options
   // (native onChange events are always plain strings), so the cast is
   // safe and keeps the filter type simple for every calling page.
-  if (filters.publishedOnly) query = query.eq("published", true).eq("status", "available");
+  const view = filters.view ?? "active";
+  if (view === "active") query = query.is("deleted_at", null);
+  else if (view === "deleted") query = query.not("deleted_at", "is", null);
+
+  if (filters.publishedOnly) query = query.eq("published", true).eq("status", "available").is("deleted_at", null);
   if (filters.q) query = query.or(`brand.ilike.%${filters.q}%,model.ilike.%${filters.q}%,stock_number.ilike.%${filters.q}%`);
   if (filters.brand) query = query.eq("brand", filters.brand);
   if (filters.status) query = query.eq("status", filters.status as VehicleStatus);
@@ -242,10 +249,16 @@ export function useDeleteVehicle() {
   const { user } = useAuth();
   return useMutation({
     mutationFn: async (id: string) => {
-      // .select() matters: when RLS blocks a delete, Supabase returns
-      // success with zero rows rather than an error. Without checking
-      // what came back, a permissions failure looks like a no-op button.
-      const { data, error } = await supabase.from("vehicles").delete().eq("id", id).select("id");
+      // Soft delete: the row is marked, not removed, so it can be
+      // reviewed and restored from the recycle bin.
+      // .select() matters: when RLS blocks the write, Supabase returns
+      // success with zero rows rather than an error, and a permissions
+      // failure would otherwise look like a no-op button.
+      const { data, error } = await supabase
+        .from("vehicles")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", id)
+        .select("id");
       if (error) throw error;
       if (!data || data.length === 0) {
         throw new Error("אין לך הרשאה למחוק רכבים. נדרשת הרשאת מנהל (admin או super_admin).");
@@ -261,7 +274,11 @@ export function useBulkDeleteVehicles() {
   const { user } = useAuth();
   return useMutation({
     mutationFn: async (ids: string[]) => {
-      const { data, error } = await supabase.from("vehicles").delete().in("id", ids).select("id");
+      const { data, error } = await supabase
+        .from("vehicles")
+        .update({ deleted_at: new Date().toISOString() })
+        .in("id", ids)
+        .select("id");
       if (error) throw error;
       if (!data || data.length === 0) {
         throw new Error("אין לך הרשאה למחוק רכבים. נדרשת הרשאת מנהל (admin או super_admin).");
@@ -276,4 +293,66 @@ export async function fetchPublishedBrands(): Promise<string[]> {
   const { data, error } = await supabase.from("vehicles").select("brand").eq("published", true).eq("status", "available");
   if (error) throw error;
   return Array.from(new Set((data ?? []).map((v) => v.brand))).sort();
+}
+
+/** Restores soft-deleted vehicles from the recycle bin. */
+export function useRestoreVehicles() {
+  const invalidate = useInvalidateVehicles();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { data, error } = await supabase
+        .from("vehicles")
+        .update({ deleted_at: null })
+        .in("id", ids)
+        .select("id");
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error("אין לך הרשאה לשחזר רכבים. נדרשת הרשאת מנהל (admin או super_admin).");
+      }
+      await logActivity(user?.id, "VEHICLES_RESTORED", "vehicle", undefined, { ids, restored: data.length });
+      return data.length;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+/** Permanently removes vehicles that are already in the recycle bin.
+ *  This is the only path that actually destroys data. */
+export function usePurgeVehicles() {
+  const invalidate = useInvalidateVehicles();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { data, error } = await supabase.from("vehicles").delete().in("id", ids).select("id");
+      if (error) throw error;
+      await logActivity(user?.id, "VEHICLES_PURGED", "vehicle", undefined, { purged: data?.length ?? 0 });
+      return data?.length ?? 0;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+/** Counts for the admin header: active stock vs. what's in the bin. */
+export function useVehicleCounts() {
+  return useQuery({
+    queryKey: ["vehicles", "counts"],
+    queryFn: async () => {
+      const [active, deleted, published] = await Promise.all([
+        supabase.from("vehicles").select("id", { count: "exact", head: true }).is("deleted_at", null),
+        supabase.from("vehicles").select("id", { count: "exact", head: true }).not("deleted_at", "is", null),
+        supabase
+          .from("vehicles")
+          .select("id", { count: "exact", head: true })
+          .is("deleted_at", null)
+          .eq("published", true)
+          .eq("status", "available"),
+      ]);
+      return {
+        active: active.count ?? 0,
+        deleted: deleted.count ?? 0,
+        published: published.count ?? 0,
+      };
+    },
+  });
 }

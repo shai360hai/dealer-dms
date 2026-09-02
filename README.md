@@ -112,6 +112,25 @@ Photo angles need one migration run once in Supabase → SQL Editor:
 `supabase/migration-add-image-angle.sql`. New projects created from
 `schema.sql` already include the column.
 
+## Deleting and restoring
+
+Deleting a vehicle or an inquiry is a **soft delete** — the record is
+marked, not destroyed. Deleted vehicles disappear from the public site
+immediately and move to the "סל מחזור" tab on the admin vehicles screen,
+where they can be restored. Deleted inquiries behave the same way under
+their "נמחקו" tab.
+
+The only action that destroys data permanently is **ריקון סל המחזור** in
+Settings, which appears once the bin is non-empty.
+
+Note that a vehicle in the recycle bin still occupies its stock number
+and slug (both are UNIQUE columns), so re-importing the same CSV will
+skip it — restore it or empty the bin first. The import result explains
+this per row.
+
+Soft delete needs one migration run once in Supabase → SQL Editor:
+`supabase/migration-add-soft-delete.sql`.
+
 ## Deploying
 
 **Vercel** (the only thing to deploy — Supabase is already hosted):

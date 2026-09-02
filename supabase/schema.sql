@@ -85,6 +85,7 @@ create table if not exists public.vehicles (
   -- Status / publishing
   status vehicle_status not null default 'available',
   published boolean not null default false,
+  deleted_at timestamptz, -- soft delete: null = active, set = in the recycle bin
 
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -116,6 +117,7 @@ create table if not exists public.inquiries (
   email text not null,
   message text,
   status inquiry_status not null default 'new',
+  deleted_at timestamptz, -- soft delete: null = active
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -245,7 +247,7 @@ create policy "super_admin manages profiles" on public.profiles for update
 -- editor/admin/super_admin can create/edit; only admin+ can delete.
 drop policy if exists "public reads published vehicles" on public.vehicles;
 create policy "public reads published vehicles" on public.vehicles for select
-  using (published = true and status = 'available');
+  using (published = true and status = 'available' and deleted_at is null);
 
 drop policy if exists "staff reads all vehicles" on public.vehicles;
 create policy "staff reads all vehicles" on public.vehicles for select
@@ -271,7 +273,10 @@ create policy "read images of visible vehicles" on public.vehicle_images for sel
     public.is_staff()
     or exists (
       select 1 from public.vehicles v
-      where v.id = vehicle_images.vehicle_id and v.published = true and v.status = 'available'
+      where v.id = vehicle_images.vehicle_id
+        and v.published = true
+        and v.status = 'available'
+        and v.deleted_at is null
     )
   );
 
