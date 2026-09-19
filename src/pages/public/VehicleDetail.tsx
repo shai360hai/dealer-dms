@@ -4,6 +4,7 @@ import { Phone, MessageCircle, CalendarCheck } from "lucide-react";
 import { VehicleCard, VehicleStatusBadge, SpecStrip } from "../../components/ui";
 import { Gallery } from "../../components/Gallery";
 import { FavoriteButton, ShareButton } from "../../components/FavoriteShareButtons";
+import { CompareButton } from "../../components/CompareButton";
 import { InquiryForm } from "../../components/InquiryForm";
 import { useVehicleBySlug, useSimilarVehicles } from "../../hooks/useVehicles";
 import { formatPrice, formatMileage } from "../../lib/format";
@@ -81,6 +82,7 @@ export default function VehicleDetail() {
           <div className="mt-4 flex flex-wrap gap-2">
             <ShareButton title={`${vehicle.brand} ${vehicle.model}`} url={`${siteUrl}/vehicles/${vehicle.slug}`} />
             <FavoriteButton slug={vehicle.slug} />
+            <CompareButton slug={vehicle.slug} />
           </div>
 
           {vehicle.description && (

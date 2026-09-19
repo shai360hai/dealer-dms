@@ -131,6 +131,80 @@ this per row.
 Soft delete needs one migration run once in Supabase → SQL Editor:
 `supabase/migration-add-soft-delete.sql`.
 
+<<<<<<< HEAD
+=======
+## Buyer-facing extras
+
+- **Financing calculator** on each vehicle page — down payment, term and
+  rate sliders producing an estimated monthly payment. Labelled as an
+  estimate throughout, since real terms depend on the lender.
+- **Favourites** (`/favorites`) — cars saved with the heart button,
+  stored in the visitor's browser (no account needed). The nav shows a
+  live count. Cars that were sold or unpublished since being saved are
+  reported rather than silently dropped.
+- **Sorting** on the inventory page: newest, price, mileage.
+- **Per-page titles and meta tags** via `usePageMeta`. Google renders
+  JavaScript so this helps search indexing — but social crawlers
+  (WhatsApp, Facebook) read the raw HTML and will show the site-wide
+  defaults in link previews. Per-car share previews would need
+  server-side rendering or prerendering.
+
+## Performance and insight
+
+- **Right-sized images.** Photos are requested at the size they're
+  actually displayed (200px thumbnails, 600px cards, 1400px gallery)
+  rather than downloading full-resolution originals everywhere. On
+  known CDNs (Unsplash, Cloudinary) this typically cuts image weight by
+  80–90%; unrecognised hosts are left untouched so a link can never
+  break.
+- **View tracking.** Opening a vehicle page increments `view_count`,
+  counted once per browser session per car so refreshes don't inflate
+  it. The dashboard surfaces the five most-viewed vehicles — useful for
+  spotting which stock draws interest and which is stuck. Counting goes
+  through a `SECURITY DEFINER` function that can only ever add 1 to a
+  published vehicle, never touch prices or status.
+  Needs `supabase/migration-add-view-count.sql`.
+- **Total inventory value** on the dashboard (excludes sold stock).
+- **Unread inquiry badge** in the admin sidebar, so a new lead is
+  visible from any screen rather than only on the inquiries page.
+
+## Link previews on WhatsApp / Facebook
+
+Because this is a client-rendered SPA, crawlers used by WhatsApp,
+Facebook and Telegram see only the site-wide defaults in the raw HTML —
+they don't run JavaScript, so React's meta tags never reach them. Result:
+sharing a specific car shows the generic site name.
+
+`middleware.ts` detects those crawlers (by user agent, matched against a
+specific list rather than a loose "bot" test) and rewrites their request
+to `api/vehicle-preview.ts`, an edge function that fetches the car from
+Supabase and returns real HTML with the right title, description and
+photo. Human visitors are never routed there — they get the normal SPA,
+so there's no page-speed cost.
+
+Requires `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` and
+`VITE_SITE_URL` to be set in Vercel (they already are if the site runs).
+Test a deployed URL with Facebook's Sharing Debugger or by pasting the
+link into a WhatsApp chat with yourself.
+
+## Email notification on new inquiries
+
+`supabase/functions/notify-inquiry/` emails the dealership the moment a
+customer submits the contact form, so a lead doesn't wait for someone to
+open the admin panel. Setup instructions are in the file's header
+comment; the database trigger is `supabase/migration-add-inquiry-webhook.sql`
+(replace the two placeholders before running it).
+
+The send is fire-and-forget through `pg_net`: a slow or failing mail
+provider can never delay or break the customer's form submission.
+
+## Comparing vehicles
+
+Up to three cars can be added to a comparison from their detail pages
+and viewed side by side at `/compare`. Rows where the cars actually
+differ are highlighted — identical rows are just noise.
+
+>>>>>>> 03934ce (Add share previews, inquiry email, vehicle comparison)
 ## Deploying
 
 **Vercel** (the only thing to deploy — Supabase is already hosted):

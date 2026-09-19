@@ -10,6 +10,11 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import Home from "./pages/public/Home";
 import Inventory from "./pages/public/Inventory";
 import VehicleDetail from "./pages/public/VehicleDetail";
+<<<<<<< HEAD
+=======
+import Favorites from "./pages/public/Favorites";
+import Compare from "./pages/public/Compare";
+>>>>>>> 03934ce (Add share previews, inquiry email, vehicle comparison)
 import PublicNotFound from "./pages/public/NotFound";
 import Login from "./pages/admin/Login";
 
@@ -48,6 +53,11 @@ export default function App() {
               <Route index element={<Home />} />
               <Route path="inventory" element={<Inventory />} />
               <Route path="vehicles/:slug" element={<VehicleDetail />} />
+<<<<<<< HEAD
+=======
+              <Route path="favorites" element={<Favorites />} />
+              <Route path="compare" element={<Compare />} />
+>>>>>>> 03934ce (Add share previews, inquiry email, vehicle comparison)
             </Route>
 
             {/* Admin */}
