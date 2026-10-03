@@ -78,6 +78,7 @@ export interface Database {
           status: VehicleStatus;
           published: boolean;
           deleted_at: string | null;
+          view_count: number;
           created_at: string;
           updated_at: string;
         };
@@ -110,7 +111,15 @@ export interface Database {
           is_cover?: boolean;
         };
         Update: Partial<{ order_index: number; is_cover: boolean; angle: string | null; url: string }>;
-        Relationships: NoRelationships;
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_images_vehicle_id_fkey";
+            columns: ["vehicle_id"];
+            isOneToOne: false;
+            referencedRelation: "vehicles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       inquiries: {
         Row: {
@@ -133,7 +142,15 @@ export interface Database {
           message?: string | null;
         };
         Update: Partial<{ status: InquiryStatus; deleted_at: string | null }>;
-        Relationships: NoRelationships;
+        Relationships: [
+          {
+            foreignKeyName: "inquiries_vehicle_id_fkey";
+            columns: ["vehicle_id"];
+            isOneToOne: false;
+            referencedRelation: "vehicles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       activity_logs: {
         Row: {
@@ -153,7 +170,15 @@ export interface Database {
           metadata?: Record<string, unknown> | null;
         };
         Update: Record<string, never>;
-        Relationships: NoRelationships;
+        Relationships: [
+          {
+            foreignKeyName: "activity_logs_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       feature_flags: {
         Row: {
@@ -169,7 +194,12 @@ export interface Database {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      increment_vehicle_view: {
+        Args: { vehicle_slug: string };
+        Returns: undefined;
+      };
+    };
     Enums: {
       user_role: UserRole;
       vehicle_status: VehicleStatus;

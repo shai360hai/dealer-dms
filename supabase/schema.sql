@@ -86,6 +86,7 @@ create table if not exists public.vehicles (
   status vehicle_status not null default 'available',
   published boolean not null default false,
   deleted_at timestamptz, -- soft delete: null = active, set = in the recycle bin
+  view_count integer not null default 0, -- public page opens; see migration-add-view-count.sql
 
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

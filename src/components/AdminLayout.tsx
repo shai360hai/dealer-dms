@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from "react-router";
 import { LayoutDashboard, Car, MessageSquare, History, Settings, LogOut, Menu, X } from "lucide-react";
 import { cn } from "./ui/cn";
 import { useAuth } from "../hooks/useAuth";
+import { useInquiryCounts } from "../hooks/useInquiries";
 
 const NAV = [
   { to: "/admin", label: "לוח בקרה", icon: LayoutDashboard, end: true },
@@ -16,6 +17,9 @@ export function AdminLayout() {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  // A new lead sitting unnoticed is a lost sale, so the count is always
+  // visible rather than only on the inquiries screen.
+  const { data: inquiryCounts } = useInquiryCounts();
 
   async function handleLogout() {
     await signOut();
@@ -48,13 +52,20 @@ export function AdminLayout() {
               onClick={() => setMobileOpen(false)}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-3 rounded-[var(--radius-card)] px-3 py-2 text-sm transition-colors",
-                  isActive ? "bg-[var(--color-navy)] text-[var(--color-porcelain)]" : "text-[var(--color-steel)] hover:bg-white/5",
+                  "flex items-center gap-3 rounded-[var(--radius-card)] px-3 py-2 text-sm transition-[background-color,box-shadow] duration-200",
+                  isActive
+                    ? "bg-[var(--color-navy)] text-[var(--color-porcelain)] shadow-[var(--shadow-glow-navy)]"
+                    : "text-[var(--color-steel)] hover:bg-white/5",
                 )
               }
             >
               <Icon size={18} strokeWidth={1.75} />
-              {label}
+              <span className="flex-1">{label}</span>
+              {to === "/admin/inquiries" && (inquiryCounts?.new ?? 0) > 0 && (
+                <span className="rounded-full bg-[var(--color-chrome-gold)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-ink)]">
+                  {inquiryCounts?.new}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>

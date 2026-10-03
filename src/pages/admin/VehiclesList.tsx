@@ -16,6 +16,7 @@ import {
 } from "../../hooks/useVehicles";
 import type { VehicleFilters } from "../../hooks/useVehicles";
 import { pickCoverImage } from "../../lib/angles";
+import { sizedImageUrl, IMAGE_SIZES } from "../../lib/image-size";
 
 const STATUS_LABEL: Record<string, string> = { available: "זמין", reserved: "שמור", sold: "נמכר" };
 
@@ -208,7 +209,7 @@ export default function VehiclesList() {
                   </td>
                   <td className="px-3 py-2">
                     <div className="h-10 w-14 overflow-hidden rounded bg-[var(--color-porcelain-dim)]">
-                      {cover ? <img src={cover.url} alt="" className="h-full w-full object-cover" /> : null}
+                      {cover ? <img src={sizedImageUrl(cover.url, IMAGE_SIZES.thumb)} alt="" className="h-full w-full object-cover" /> : null}
                     </div>
                   </td>
                   <td className="px-3 py-2">

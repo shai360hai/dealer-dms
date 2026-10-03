@@ -13,7 +13,16 @@ export function Badge({
     reserved: "bg-[color-mix(in_srgb,var(--color-status-reserved)_15%,white)] text-[var(--color-status-reserved)]",
     sold: "bg-[color-mix(in_srgb,var(--color-status-sold)_15%,white)] text-[var(--color-status-sold)]",
   };
-  return <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium", toneClasses[tone], className)} {...props} />;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium backdrop-blur-sm before:h-1.5 before:w-1.5 before:rounded-full before:bg-current before:opacity-70",
+        toneClasses[tone],
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 
 const VEHICLE_STATUS_LABEL: Record<string, string> = { available: "זמין", reserved: "שמור", sold: "נמכר" };

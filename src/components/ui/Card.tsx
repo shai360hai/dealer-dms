@@ -3,7 +3,13 @@ import { cn } from "./cn";
 
 export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("rounded-[var(--radius-card)] border border-[var(--color-steel)] bg-white shadow-sm", className)} {...props} />
+    <div
+      className={cn(
+        "rounded-[var(--radius-card)] border border-[var(--color-steel)]/70 bg-white shadow-[var(--shadow-soft)] transition-shadow duration-300 ease-[var(--ease-signature)]",
+        className,
+      )}
+      {...props}
+    />
   );
 }
 export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {

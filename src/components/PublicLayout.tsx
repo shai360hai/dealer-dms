@@ -1,9 +1,22 @@
-import { useState } from "react";
-import { Link, NavLink, Outlet } from "react-router";
-import { Menu, X, Car, Phone, MessageCircle, Clock } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, NavLink, Outlet, useLocation } from "react-router";
+import { Menu, X, Car, Phone, MessageCircle, Clock, Heart } from "lucide-react";
 
 export function PublicLayout() {
   const [open, setOpen] = useState(false);
+  const [favCount, setFavCount] = useState(0);
+  const location = useLocation();
+
+  // Re-read on navigation so the badge reflects a car just favourited
+  // on a detail page without needing a full reload.
+  useEffect(() => {
+    try {
+      setFavCount(JSON.parse(localStorage.getItem("dealer-dms-favorites") ?? "[]").length);
+    } catch {
+      setFavCount(0);
+    }
+  }, [location]);
+
   const links = [
     { to: "/", label: "דף הבית" },
     { to: "/inventory", label: "מלאי הרכבים" },
@@ -11,10 +24,10 @@ export function PublicLayout() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-40 border-b border-[var(--color-steel)] bg-[var(--color-porcelain)]/90 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-[var(--color-steel)]/60 bg-[var(--color-porcelain)]/75 backdrop-blur-md backdrop-saturate-150 transition-shadow">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-          <Link to="/" className="flex items-center gap-2">
-            <Car size={22} className="text-[var(--color-navy)]" strokeWidth={1.75} />
+          <Link to="/" className="group flex items-center gap-2">
+            <Car size={22} className="text-[var(--color-navy)] transition-transform duration-300 group-hover:-rotate-6" strokeWidth={1.75} />
             <span className="font-[family-name:var(--font-display)] text-lg text-[var(--color-navy)]">Dealer DMS</span>
           </Link>
 
@@ -25,12 +38,30 @@ export function PublicLayout() {
                 to={l.to}
                 end={l.to === "/"}
                 className={({ isActive }) =>
-                  `text-sm transition-colors ${isActive ? "font-medium text-[var(--color-navy)]" : "text-[var(--color-steel-dark)] hover:text-[var(--color-navy)]"}`
+                  `relative text-sm transition-colors after:absolute after:inset-x-0 after:-bottom-1.5 after:h-0.5 after:rounded-full after:bg-[var(--color-chrome-gold)] after:transition-transform after:duration-300 after:ease-[var(--ease-signature)] ${
+                    isActive
+                      ? "font-medium text-[var(--color-navy)] after:scale-x-100"
+                      : "text-[var(--color-steel-dark)] after:scale-x-0 hover:text-[var(--color-navy)] hover:after:scale-x-100"
+                  }`
                 }
               >
                 {l.label}
               </NavLink>
             ))}
+            <NavLink
+              to="/favorites"
+              className={({ isActive }) =>
+                `flex items-center gap-1.5 text-sm transition-colors ${isActive ? "font-medium text-[var(--color-navy)]" : "text-[var(--color-steel-dark)] hover:text-[var(--color-navy)]"}`
+              }
+            >
+              <Heart size={15} />
+              מועדפים
+              {favCount > 0 && (
+                <span className="rounded-full bg-[var(--color-chrome-gold)] px-1.5 text-[10px] font-medium text-[var(--color-ink)]">
+                  {favCount}
+                </span>
+              )}
+            </NavLink>
           </nav>
 
           <button className="md:hidden" onClick={() => setOpen((v) => !v)} aria-label="תפריט">
@@ -45,6 +76,9 @@ export function PublicLayout() {
                 {l.label}
               </Link>
             ))}
+            <Link to="/favorites" onClick={() => setOpen(false)} className="flex items-center gap-1.5 rounded-[var(--radius-card)] px-2 py-2 text-sm hover:bg-[var(--color-porcelain-dim)]">
+              <Heart size={15} /> מועדפים {favCount > 0 && `(${favCount})`}
+            </Link>
           </nav>
         )}
       </header>

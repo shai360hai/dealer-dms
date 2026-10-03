@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { VehicleCard, Input, Button } from "../../components/ui";
 import { useVehicles, fetchPublishedBrands } from "../../hooks/useVehicles";
+import { usePageMeta } from "../../hooks/usePageMeta";
 import { pickCoverImage } from "../../lib/angles";
 
 const FUEL_LABEL: Record<string, string> = { petrol: "בנזין", diesel: "דיזל", hybrid: "היברידי", plugin_hybrid: "נטען (Plug-in)", electric: "חשמלי" };
@@ -11,6 +12,11 @@ export default function Inventory() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [brands, setBrands] = useState<string[]>([]);
   const page = Number(searchParams.get("page") ?? 1);
+
+  usePageMeta({
+    title: "מלאי הרכבים — Dealer DMS",
+    description: "כל הרכבים הזמינים במלאי הסוכנות, עם מפרט מלא, תמונות ומחיר.",
+  });
 
   useEffect(() => {
     fetchPublishedBrands().then(setBrands);
@@ -25,6 +31,7 @@ export default function Inventory() {
     priceMin: searchParams.get("priceMin") ? Number(searchParams.get("priceMin")) : undefined,
     priceMax: searchParams.get("priceMax") ? Number(searchParams.get("priceMax")) : undefined,
     mileageMax: searchParams.get("mileageMax") ? Number(searchParams.get("mileageMax")) : undefined,
+    sort: (searchParams.get("sort") as "newest" | "price_asc" | "price_desc" | "mileage_asc" | null) ?? "newest",
     page,
     pageSize: 12,
   });
@@ -53,7 +60,7 @@ export default function Inventory() {
   const totalPages = data ? Math.max(1, Math.ceil(data.total / 12)) : 1;
   // "X רכבים במלאי" is only accurate with no filters applied; once the
   // list is narrowed the number describes the search, not the stock.
-  const hasFilters = Array.from(searchParams.keys()).some((k) => k !== "page");
+  const hasFilters = Array.from(searchParams.keys()).some((k) => k !== "page" && k !== "sort");
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -65,6 +72,21 @@ export default function Inventory() {
             ? `${data.total} רכבים תואמים את החיפוש`
             : `${data.total} רכבים במלאי`}
       </p>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <label htmlFor="sort" className="text-sm text-[var(--color-steel-dark)]">מיון:</label>
+        <select
+          id="sort"
+          value={searchParams.get("sort") ?? "newest"}
+          onChange={(e) => setParam("sort", e.target.value === "newest" ? "" : e.target.value)}
+          className="h-10 rounded-[var(--radius-card)] border border-[var(--color-steel)] bg-white px-3 text-sm"
+        >
+          <option value="newest">החדשים ביותר</option>
+          <option value="price_asc">מחיר: מהנמוך לגבוה</option>
+          <option value="price_desc">מחיר: מהגבוה לנמוך</option>
+          <option value="mileage_asc">קילומטראז׳: מהנמוך לגבוה</option>
+        </select>
+      </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
         <div className="flex flex-col gap-3 rounded-[var(--radius-card)] border border-[var(--color-steel)] bg-white p-4">

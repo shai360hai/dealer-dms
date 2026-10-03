@@ -4,6 +4,7 @@ import { Search } from "lucide-react";
 import { Button, Input, VehicleCard } from "../../components/ui";
 import { InquiryForm } from "../../components/InquiryForm";
 import { useVehicles } from "../../hooks/useVehicles";
+import { usePageMeta } from "../../hooks/usePageMeta";
 import { pickCoverImage } from "../../lib/angles";
 
 const WHY_US = [
@@ -16,19 +17,31 @@ const WHY_US = [
 export default function Home() {
   const navigate = useNavigate();
   const [q, setQ] = useState("");
+  usePageMeta({
+    title: "Dealer DMS — רכבים חדשים ומשומשים למכירה",
+    description: "מלאי רכבים עדכני, כולל מפרט מלא, תמונות ותנאי אחריות. תיאום נסיעת מבחן בקליק אחד.",
+  });
+
   const { data: featured } = useVehicles({ publishedOnly: true, sort: "newest", pageSize: 4 });
   const { data: latest } = useVehicles({ publishedOnly: true, sort: "newest", pageSize: 8 });
 
   return (
     <div>
-      <section className="relative overflow-hidden bg-[var(--color-ink)] py-20 text-center text-[var(--color-porcelain)] sm:py-28">
+      <section className="relative overflow-hidden bg-[var(--color-ink)] py-24 text-center text-[var(--color-porcelain)] sm:py-32">
         <div
-          className="pointer-events-none absolute inset-0 opacity-20"
+          className="pointer-events-none absolute inset-0 opacity-25"
           style={{ backgroundImage: "radial-gradient(circle at 30% 20%, var(--color-chrome-gold) 0%, transparent 35%), radial-gradient(circle at 80% 80%, var(--color-navy-light) 0%, transparent 45%)" }}
         />
-        <div className="relative mx-auto max-w-3xl px-4">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.07]"
+          style={{
+            backgroundImage: "linear-gradient(var(--color-porcelain) 1px, transparent 1px), linear-gradient(90deg, var(--color-porcelain) 1px, transparent 1px)",
+            backgroundSize: "48px 48px",
+          }}
+        />
+        <div className="relative mx-auto max-w-3xl px-4 animate-fade-up">
           <p className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.3em] text-[var(--color-chrome-gold)]">המלאי הזמין עכשיו</p>
-          <h1 className="mt-4 font-[family-name:var(--font-display)] text-4xl leading-tight sm:text-5xl">הרכב הבא שלכם מחכה כאן</h1>
+          <h1 className="mt-4 font-[family-name:var(--font-display)] text-4xl leading-tight sm:text-6xl">הרכב הבא שלכם מחכה כאן</h1>
           <p className="mx-auto mt-4 max-w-xl text-[var(--color-steel)]">מפרט מלא, תמונות אמיתיות ומחיר שקוף לכל רכב במלאי — לפני שקבעתם הגעה.</p>
           <form
             onSubmit={(e) => {
@@ -37,12 +50,12 @@ export default function Home() {
             }}
             className="mx-auto mt-8 flex max-w-xl gap-2"
           >
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="חיפוש לפי יצרן או דגם, למשל Deepal S07" className="h-12 bg-white/95 text-[var(--color-ink)]" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="חיפוש לפי יצרן או דגם, למשל Deepal S07" className="h-12 bg-white/95 text-[var(--color-ink)] shadow-[var(--shadow-elevated)]" />
             <Button type="submit" variant="gold" size="lg">
               <Search size={18} /> חיפוש
             </Button>
           </form>
-          <Link to="/inventory" className="mt-4 inline-block text-sm text-[var(--color-chrome-gold-soft)] underline underline-offset-4">
+          <Link to="/inventory" className="mt-4 inline-block text-sm text-[var(--color-chrome-gold-soft)] underline underline-offset-4 transition-colors hover:text-[var(--color-chrome-gold)]">
             צפייה בכל המלאי
           </Link>
         </div>
@@ -51,7 +64,7 @@ export default function Home() {
       <section className="mx-auto max-w-6xl px-4 py-12">
         <div className="mb-6 flex items-end justify-between">
           <h2 className="font-[family-name:var(--font-display)] text-2xl">רכבים מומלצים</h2>
-          <Link to="/inventory" className="text-sm text-[var(--color-navy)] underline">לכל המלאי</Link>
+          <Link to="/inventory" className="text-sm font-medium text-[var(--color-navy)] underline underline-offset-4 transition-colors hover:text-[var(--color-chrome-gold)]">לכל המלאי</Link>
         </div>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {featured?.items.map((v) => (
@@ -74,8 +87,11 @@ export default function Home() {
           <h2 className="mb-8 text-center font-[family-name:var(--font-display)] text-2xl">למה לקנות אצלנו</h2>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {WHY_US.map((item, i) => (
-              <div key={i} className="rounded-[var(--radius-card)] border border-[var(--color-steel)] bg-white p-5">
-                <p className="font-[family-name:var(--font-mono)] text-xs text-[var(--color-chrome-gold)]">0{i + 1}</p>
+              <div
+                key={i}
+                className="group rounded-[var(--radius-card)] border border-[var(--color-steel)]/70 bg-white p-5 shadow-[var(--shadow-soft)] transition-[transform,box-shadow] duration-300 ease-[var(--ease-signature)] hover:-translate-y-1 hover:shadow-[var(--shadow-elevated)]"
+              >
+                <p className="font-[family-name:var(--font-mono)] text-xs text-[var(--color-chrome-gold)] transition-transform duration-300 group-hover:scale-110">0{i + 1}</p>
                 <p className="mt-2 font-medium">{item.title}</p>
                 <p className="mt-1 text-sm text-[var(--color-steel-dark)]">{item.body}</p>
               </div>

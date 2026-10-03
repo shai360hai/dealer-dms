@@ -131,8 +131,6 @@ this per row.
 Soft delete needs one migration run once in Supabase → SQL Editor:
 `supabase/migration-add-soft-delete.sql`.
 
-<<<<<<< HEAD
-=======
 ## Buyer-facing extras
 
 - **Financing calculator** on each vehicle page — down payment, term and
@@ -204,7 +202,6 @@ Up to three cars can be added to a comparison from their detail pages
 and viewed side by side at `/compare`. Rows where the cars actually
 differ are highlighted — identical rows are just noise.
 
->>>>>>> 03934ce (Add share previews, inquiry email, vehicle comparison)
 ## Deploying
 
 **Vercel** (the only thing to deploy — Supabase is already hosted):

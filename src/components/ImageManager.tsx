@@ -4,6 +4,7 @@ import { cn } from "./ui/cn";
 import { Button, Input } from "./ui";
 import type { VehicleImage } from "../types/database";
 import { checkImageUrl, splitImageUrls } from "../lib/image-url";
+import { sizedImageUrl, IMAGE_SIZES } from "../lib/image-size";
 import {
   useUploadVehicleImage,
   useAddImagesByUrl,
@@ -148,8 +149,9 @@ export function ImageManager({ vehicleId, images }: { vehicleId: string; images:
               className="group relative aspect-square cursor-grab overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-steel)]"
             >
               <img
-                src={img.url}
+                src={sizedImageUrl(img.url, IMAGE_SIZES.thumb)}
                 alt=""
+                loading="lazy"
                 className="h-full w-full object-cover"
                 onError={(e) => {
                   // A dead or non-image link shouldn't leave a broken-image

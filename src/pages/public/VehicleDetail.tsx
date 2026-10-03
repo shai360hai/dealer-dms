@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useParams, Link } from "react-router";
 import { Phone, MessageCircle, CalendarCheck } from "lucide-react";
 import { VehicleCard, VehicleStatusBadge, SpecStrip } from "../../components/ui";
@@ -7,6 +6,9 @@ import { FavoriteButton, ShareButton } from "../../components/FavoriteShareButto
 import { CompareButton } from "../../components/CompareButton";
 import { InquiryForm } from "../../components/InquiryForm";
 import { useVehicleBySlug, useSimilarVehicles } from "../../hooks/useVehicles";
+import { usePageMeta } from "../../hooks/usePageMeta";
+import { useTrackVehicleView } from "../../hooks/useTrackVehicleView";
+import { FinancingCalculator } from "../../components/FinancingCalculator";
 import { formatPrice, formatMileage } from "../../lib/format";
 import { sortByAngle, ANGLE_LABEL } from "../../lib/angles";
 import type { FuelType, TransmissionType, DriveType } from "../../types/database";
@@ -19,11 +21,21 @@ export default function VehicleDetail() {
   const { slug } = useParams<{ slug: string }>();
   const { data: vehicle, isLoading } = useVehicleBySlug(slug);
   const { data: similar } = useSimilarVehicles(vehicle);
+  useTrackVehicleView(slug, Boolean(vehicle));
   const siteUrl = import.meta.env.VITE_SITE_URL ?? window.location.origin;
 
-  useEffect(() => {
-    if (vehicle) document.title = `${vehicle.brand} ${vehicle.model} ${vehicle.year} — Dealer DMS`;
-  }, [vehicle]);
+
+  const cover = vehicle ? (vehicle.vehicle_images.find((i) => i.is_cover) ?? vehicle.vehicle_images[0]) : undefined;
+
+  usePageMeta({
+    title: vehicle ? `${vehicle.brand} ${vehicle.model} ${vehicle.year} — ${formatPrice(vehicle.price)}` : "טוען…",
+    description: vehicle
+      ? vehicle.description?.slice(0, 155) ??
+        `${vehicle.brand} ${vehicle.model} ${vehicle.year}, ${formatMileage(vehicle.mileage)}, ${formatPrice(vehicle.price)}`
+      : undefined,
+    image: cover?.url,
+    url: vehicle ? `${siteUrl}/vehicles/${vehicle.slug}` : undefined,
+  });
 
   if (isLoading) {
     return <div className="mx-auto max-w-6xl px-4 py-24 text-center text-[var(--color-steel-dark)]">טוען...</div>;
@@ -117,10 +129,7 @@ export default function VehicleDetail() {
             </section>
           )}
 
-          <section className="mt-8 rounded-[var(--radius-card)] border border-dashed border-[var(--color-steel)] p-5">
-            <h2 className="font-[family-name:var(--font-display)] text-xl">מימון</h2>
-            <p className="mt-1 text-sm text-[var(--color-steel-dark)]">ניתן לבחון מסלולי מימון מותאמים אישית מול הסוכנות. השאירו פרטים ונחזור עם הצעה.</p>
-          </section>
+          <FinancingCalculator price={vehicle.price} />
         </div>
 
         <aside className="lg:sticky lg:top-20 lg:self-start">

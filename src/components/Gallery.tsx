@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { ChevronLeft, ChevronRight, X, Expand } from "lucide-react";
 import { cn } from "./ui/cn";
+import { sizedImageUrl, IMAGE_SIZES } from "../lib/image-size";
 
 export function Gallery({
   images,
@@ -33,7 +34,7 @@ export function Gallery({
     <div>
       <div className="relative aspect-[4/3] cursor-zoom-in overflow-hidden rounded-[var(--radius-card)] bg-[var(--color-ink-soft)] sm:aspect-[16/10]" onClick={() => setFullscreen(true)}>
         {current.url ? (
-          <img src={current.url} alt={alt} className="h-full w-full object-cover" loading="eager" />
+          <img src={sizedImageUrl(current.url, IMAGE_SIZES.gallery)} alt={alt} className="h-full w-full object-cover" loading="eager" />
         ) : (
           <div className="flex h-full items-center justify-center text-[var(--color-steel)]">אין תמונה זמינה</div>
         )}
@@ -58,7 +59,7 @@ export function Gallery({
         <div className="mt-2 flex gap-2 overflow-x-auto">
           {gallery.map((img, i) => (
             <button key={i} onClick={() => setActive(i)} className={cn("relative h-16 w-20 shrink-0 overflow-hidden rounded-[var(--radius-card)] border-2", i === active ? "border-[var(--color-chrome-gold)]" : "border-transparent")}>
-              <img src={img.url} alt="" className="h-full w-full object-cover" />
+              <img src={sizedImageUrl(img.url, IMAGE_SIZES.thumb)} alt="" className="h-full w-full object-cover" loading="lazy" />
               {img.caption && (
                 <span className="absolute inset-x-0 bottom-0 bg-black/55 px-1 py-0.5 text-center text-[9px] leading-tight text-white">
                   {img.caption}
@@ -80,7 +81,7 @@ export function Gallery({
             </button>
           )}
           <div className="relative h-[80vh] w-[90vw]">
-            {current.url && <img src={current.url} alt={alt} className="h-full w-full object-contain" />}
+            {current.url && <img src={sizedImageUrl(current.url, IMAGE_SIZES.gallery)} alt={alt} className="h-full w-full object-contain" />}
           </div>
           {gallery.length > 1 && (
             <button className="absolute end-4 text-white" onClick={next} aria-label="הבא">
