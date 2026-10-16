@@ -5,6 +5,7 @@ import { AuthProvider } from "./hooks/useAuth";
 import { PublicLayout } from "./components/PublicLayout";
 import { AdminLayout } from "./components/AdminLayout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 // Public pages load eagerly — they're the first thing most visitors see.
 import Home from "./pages/public/Home";
@@ -41,44 +42,46 @@ export default function App() {
   );
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            {/* Public site */}
-            <Route element={<PublicLayout />}>
-              <Route index element={<Home />} />
-              <Route path="inventory" element={<Inventory />} />
-              <Route path="vehicles/:slug" element={<VehicleDetail />} />
-              <Route path="favorites" element={<Favorites />} />
-              <Route path="compare" element={<Compare />} />
-            </Route>
-
-            {/* Admin */}
-            <Route path="admin/login" element={<Login />} />
-            <Route element={<ProtectedRoute />}>
-              <Route
-                path="admin"
-                element={
-                  <Suspense fallback={<AdminFallback />}>
-                    <AdminLayout />
-                  </Suspense>
-                }
-              >
-                <Route index element={<Suspense fallback={<AdminFallback />}><Dashboard /></Suspense>} />
-                <Route path="vehicles" element={<Suspense fallback={<AdminFallback />}><VehiclesList /></Suspense>} />
-                <Route path="vehicles/new" element={<Suspense fallback={<AdminFallback />}><NewVehicle /></Suspense>} />
-                <Route path="vehicles/:id/edit" element={<Suspense fallback={<AdminFallback />}><EditVehicle /></Suspense>} />
-                <Route path="inquiries" element={<Suspense fallback={<AdminFallback />}><Inquiries /></Suspense>} />
-                <Route path="activity" element={<Suspense fallback={<AdminFallback />}><Activity /></Suspense>} />
-                <Route path="settings" element={<Suspense fallback={<AdminFallback />}><Settings /></Suspense>} />
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AuthProvider>
+            <Routes>
+              {/* Public site */}
+              <Route element={<PublicLayout />}>
+                <Route index element={<Home />} />
+                <Route path="inventory" element={<Inventory />} />
+                <Route path="vehicles/:slug" element={<VehicleDetail />} />
+                <Route path="favorites" element={<Favorites />} />
+                <Route path="compare" element={<Compare />} />
               </Route>
-            </Route>
 
-            <Route path="*" element={<PublicNotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
+              {/* Admin */}
+              <Route path="admin/login" element={<Login />} />
+              <Route element={<ProtectedRoute />}>
+                <Route
+                  path="admin"
+                  element={
+                    <Suspense fallback={<AdminFallback />}>
+                      <AdminLayout />
+                    </Suspense>
+                  }
+                >
+                  <Route index element={<Suspense fallback={<AdminFallback />}><Dashboard /></Suspense>} />
+                  <Route path="vehicles" element={<Suspense fallback={<AdminFallback />}><VehiclesList /></Suspense>} />
+                  <Route path="vehicles/new" element={<Suspense fallback={<AdminFallback />}><NewVehicle /></Suspense>} />
+                  <Route path="vehicles/:id/edit" element={<Suspense fallback={<AdminFallback />}><EditVehicle /></Suspense>} />
+                  <Route path="inquiries" element={<Suspense fallback={<AdminFallback />}><Inquiries /></Suspense>} />
+                  <Route path="activity" element={<Suspense fallback={<AdminFallback />}><Activity /></Suspense>} />
+                  <Route path="settings" element={<Suspense fallback={<AdminFallback />}><Settings /></Suspense>} />
+                </Route>
+              </Route>
+
+              <Route path="*" element={<PublicNotFound />} />
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }

@@ -77,8 +77,9 @@ export default async function handler(request: Request): Promise<Response> {
       .join(" ");
 
     const mileage = new Intl.NumberFormat("he-IL").format(vehicle.mileage);
+    // `||`, not `??`: an empty description should fall back too.
     const description =
-      vehicle.description?.slice(0, 155) ??
+      vehicle.description?.slice(0, 155) ||
       `${formatPrice(vehicle.price)} · ${mileage} ק״מ · ${vehicle.year}`;
 
     const cover =

@@ -16,29 +16,44 @@ const AuthContext = React.createContext<AuthContextValue | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = React.useState<Session | null>(null);
-  const [profile, setProfile] = React.useState<Profile | null>(null);
-  const [loading, setLoading] = React.useState(true);
-
-  const loadProfile = React.useCallback(async (userId: string) => {
-    const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
-    setProfile(data ?? null);
-  }, []);
+  const [sessionLoading, setSessionLoading] = React.useState(true);
+  // Keyed by user id so a profile can never be shown for the wrong
+  // account, and so "loading" is derivable without an extra flag.
+  const [loaded, setLoaded] = React.useState<{ userId: string; profile: Profile | null } | null>(null);
 
   React.useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      if (data.session) loadProfile(data.session.user.id).finally(() => setLoading(false));
-      else setLoading(false);
-    });
-
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    // onAuthStateChange emits INITIAL_SESSION on subscribe, so it also
+    // covers the first load — no separate getSession() call to race it.
+    // Nothing here may call Supabase: the auth client holds a lock while
+    // this callback runs, and awaiting another request inside it can
+    // deadlock. The profile is fetched by the effect below instead.
+    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
-      if (nextSession) loadProfile(nextSession.user.id);
-      else setProfile(null);
+      setSessionLoading(false);
     });
+    return () => data.subscription.unsubscribe();
+  }, []);
 
-    return () => subscription.subscription.unsubscribe();
-  }, [loadProfile]);
+  const userId = session?.user.id;
+
+  React.useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setLoaded({ userId, profile: data ?? null });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  const profile = userId && loaded?.userId === userId ? loaded.profile : null;
+  const loading = sessionLoading || (Boolean(userId) && loaded?.userId !== userId);
 
   const signIn = React.useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });

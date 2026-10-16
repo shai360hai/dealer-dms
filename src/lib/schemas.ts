@@ -45,10 +45,13 @@ export type VehicleFormValues = z.input<typeof vehicleFormSchema>;
 export const inquiryFormSchema = z.object({
   vehicle_id: z.string().optional(),
   full_name: z.string().trim().min(2, "נא להזין שם מלא").max(80),
+  // People type numbers every which way ("050 123 4567", "+972-50-…"),
+  // so normalise to plain local digits before validating and storing.
   phone: z
     .string()
     .trim()
-    .regex(/^0\d{1,2}-?\d{6,7}$/, "מספר טלפון לא תקין"),
+    .transform((s) => s.replace(/[\s\-().]/g, "").replace(/^\+?972/, "0"))
+    .pipe(z.string().regex(/^0\d{7,9}$/, "מספר טלפון לא תקין")),
   email: z.string().trim().email("כתובת דוא״ל לא תקינה"),
   message: z.string().trim().max(1000).optional().or(z.literal("")),
 });

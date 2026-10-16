@@ -12,8 +12,9 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const from = (location.state as { from?: string } | null)?.from ?? "/admin";
+
   if (session) {
-    const from = (location.state as { from?: string } | null)?.from ?? "/admin";
     return <Navigate to={from} replace />;
   }
 
@@ -27,7 +28,7 @@ export default function Login() {
       setError("אימייל או סיסמה שגויים");
       return;
     }
-    navigate("/admin");
+    navigate(from, { replace: true });
   }
 
   return (

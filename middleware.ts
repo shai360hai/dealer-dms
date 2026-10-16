@@ -12,11 +12,17 @@ export const config = {
   matcher: "/vehicles/:slug*",
 };
 
-// Matches the crawlers that actually fetch link previews. Deliberately
-// specific rather than a generic /bot/ test, so a real browser whose
-// user-agent happens to contain "bot" isn't served the stub page.
+// Matches the crawlers that fetch link previews without running
+// JavaScript. Deliberately specific rather than a generic /bot/ test, so
+// a real browser whose user-agent happens to contain "bot" isn't served
+// the stub page.
+//
+// Search engines (Googlebot, bingbot, Applebot) are deliberately NOT
+// listed: they render JavaScript and should index the full vehicle page.
+// Sending them the bare preview stub would give them a thin page to rank
+// instead of the real listing.
 const CRAWLER_PATTERN =
-  /(facebookexternalhit|WhatsApp|Twitterbot|Slackbot|LinkedInBot|TelegramBot|Discordbot|Googlebot|bingbot|redditbot|Applebot|SkypeUriPreview|vkShare|W3C_Validator|Pinterest)/i;
+  /(facebookexternalhit|Facebot|WhatsApp|Twitterbot|Slackbot|LinkedInBot|TelegramBot|Discordbot|redditbot|SkypeUriPreview|vkShare|Pinterest)/i;
 
 export default function middleware(request: Request) {
   const userAgent = request.headers.get("user-agent") ?? "";
