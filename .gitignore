@@ -9,3 +9,9 @@ dist/
 !.vscode/extensions.json
 .vercel
 .env*
+
+# TypeScript incremental build state
+*.tsbuildinfo
+
+# .env* above would otherwise hide the template
+!.env.example
