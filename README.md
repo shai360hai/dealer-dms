@@ -27,6 +27,12 @@ run or deploy.
    `supabase/schema.sql`, and run it. This creates every table, the
    access-control rules, and the image storage bucket.
 3. Same again with `supabase/seed.sql` — this loads demo inventory.
+
+> **Already running an older version?** `schema.sql` always describes
+> the latest state, but re-running it won't change existing policies
+> everywhere. Run each `supabase/migration-*.sql` you haven't yet, and
+> in particular **`migration-harden-security.sql`** (see
+> [Security model](#security-model)).
 4. **Settings → API**: copy the **Project URL** and the **anon /
    public key** — you'll need both next.
 
@@ -71,6 +77,32 @@ the account you created in step 2.
 | `editor` | Create/edit vehicles, manage inquiries |
 | `admin` | Everything `editor` can, plus delete vehicles |
 | `super_admin` | Everything `admin` can, plus manage feature flags and other users' roles |
+
+Roles are enforced by the database, not just hidden in the UI — see
+below.
+
+## Security model
+
+The browser talks to Supabase directly with the public anon key, so
+anyone can call the same API the app does. Every rule therefore lives
+in Postgres (`schema.sql`, mirrored in `migration-harden-security.sql`):
+
+- **Visitors** read published, available, non-deleted cars only — and
+  never the `dealer_notes` column (column-level grant; RLS alone only
+  limits rows). Public queries name their columns via
+  `src/lib/vehicle-columns.ts`; a unit test keeps that list in step with
+  the SQL grant.
+- **Visitors** may submit inquiries, but only the form's own fields,
+  with length limits. The form also has a honeypot field against bots.
+- **Deleting/restoring vehicles** (a soft delete, i.e. an UPDATE) is
+  restricted to admin/super_admin by a trigger, since editors may
+  otherwise update vehicles.
+- The **last active super_admin** can't be demoted or deactivated.
+- **Activity log** rows must be attributed to the user writing them.
+- The **photo bucket** accepts images only, up to 10 MB.
+
+`supabase/tests/access-rules.sql` checks all of this role by role and
+runs in CI against plain Postgres.
 
 ## Importing vehicles from CSV
 
@@ -178,7 +210,9 @@ specific list rather than a loose "bot" test) and rewrites their request
 to `api/vehicle-preview.ts`, an edge function that fetches the car from
 Supabase and returns real HTML with the right title, description and
 photo. Human visitors are never routed there — they get the normal SPA,
-so there's no page-speed cost.
+so there's no page-speed cost. Search engines (Googlebot, Bing,
+Applebot) aren't routed there either: they render JavaScript and should
+index the full page, not the preview stub.
 
 Requires `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` and
 `VITE_SITE_URL` to be set in Vercel (they already are if the site runs).
@@ -191,7 +225,15 @@ link into a WhatsApp chat with yourself.
 customer submits the contact form, so a lead doesn't wait for someone to
 open the admin panel. Setup instructions are in the file's header
 comment; the database trigger is `supabase/migration-add-inquiry-webhook.sql`
-(replace the two placeholders before running it).
+(replace the three placeholders before running it).
+
+The function has to be deployed without JWT verification (the trigger
+has no user session), so its URL is public. A shared `WEBHOOK_SECRET`,
+set both as a function secret and in the trigger, is what stops anyone
+else from using it to send mail to your inbox — the function refuses
+every request until it's configured. If you set this up before the
+secret existed, set the secret, redeploy the function and re-run the
+migration with it filled in.
 
 The send is fire-and-forget through `pg_net`: a slow or failing mail
 provider can never delay or break the customer's form submission.
@@ -201,6 +243,31 @@ provider can never delay or break the customer's form submission.
 Up to three cars can be added to a comparison from their detail pages
 and viewed side by side at `/compare`. Rows where the cars actually
 differ are highlighted — identical rows are just noise.
+
+## Development
+
+```bash
+pnpm lint        # ESLint
+pnpm typecheck   # app + Vercel edge code
+pnpm test        # Vitest unit tests
+pnpm build
+```
+
+CI (`.github/workflows/ci.yml`) runs all of these, and also applies
+`schema.sql` (twice, to prove it's re-runnable) plus `seed.sql` to a
+Postgres 16 container and runs `supabase/tests/access-rules.sql`. To run
+the database checks locally against an empty, throwaway Postgres
+database:
+
+```bash
+psql -v ON_ERROR_STOP=1 -f supabase/tests/supabase-stub.sql
+psql -v ON_ERROR_STOP=1 -f supabase/schema.sql
+psql -v ON_ERROR_STOP=1 -f supabase/seed.sql
+psql -v ON_ERROR_STOP=1 -f supabase/tests/access-rules.sql
+```
+
+Never point these at a real Supabase project — the stub creates its own
+roles and `auth`/`storage` schemas.
 
 ## Deploying
 
@@ -228,8 +295,12 @@ normally).
 
 ```
 supabase/
-  schema.sql   Tables, RLS policies, storage bucket
-  seed.sql     Demo inventory
+  schema.sql        Tables, RLS policies, storage bucket (latest state)
+  migration-*.sql   Incremental upgrades for existing projects
+  seed.sql          Demo inventory
+  tests/            Access-rule checks run in CI
+  functions/        Edge function: inquiry email
+api/, middleware.ts Vercel edge: link previews for social crawlers
 src/
   lib/         Supabase client, Zod schemas, formatting helpers
   types/       Hand-written types matching the Supabase schema
@@ -248,7 +319,7 @@ inquiries, an activity log, role-based access, and a public site with
 search/filtering and SEO-friendly URLs.
 
 Deliberately not rebuilt from the earlier, more complex version of
-this project: CSV import/export, a dedicated reports view, and the
+this project: CSV export, a dedicated reports view, and the
 "Future Integrations" list from the original spec (WhatsApp Business
 API, trade-in valuation, etc.) — the `feature_flags` table is seeded
 with placeholders for these so they're easy to wire in later without
