@@ -6,7 +6,8 @@ import { formatPrice, formatMileage } from "../../lib/format";
 import { sizedImageUrl, IMAGE_SIZES } from "../../lib/image-size";
 import { pickCoverImage } from "../../lib/angles";
 import { usePageMeta } from "../../hooks/usePageMeta";
-import type { VehicleWithImages } from "../../types/database";
+import { PUBLIC_VEHICLE_SELECT } from "../../lib/vehicle-columns";
+import type { PublicVehicleWithImages } from "../../types/database";
 
 const FUEL_LABEL: Record<string, string> = {
   petrol: "בנזין",
@@ -20,7 +21,7 @@ const DRIVE_LABEL: Record<string, string> = { fwd: "קדמית", rwd: "אחור�
 
 interface Row {
   label: string;
-  value: (v: VehicleWithImages) => string;
+  value: (v: PublicVehicleWithImages) => string;
 }
 
 const ROWS: Row[] = [
@@ -53,7 +54,7 @@ export default function Compare() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vehicles")
-        .select("*, vehicle_images(*)")
+        .select(PUBLIC_VEHICLE_SELECT)
         .in("slug", slugs)
         .eq("published", true)
         .eq("status", "available")
@@ -62,8 +63,8 @@ export default function Compare() {
       // Preserve the order the user picked them in, which the database
       // doesn't guarantee.
       return slugs
-        .map((s) => (data as VehicleWithImages[]).find((v) => v.slug === s))
-        .filter((v): v is VehicleWithImages => Boolean(v));
+        .map((s) => (data as unknown as PublicVehicleWithImages[]).find((v) => v.slug === s))
+        .filter((v): v is PublicVehicleWithImages => Boolean(v));
     },
     enabled: slugs.length > 0,
   });

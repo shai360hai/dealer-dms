@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
 import { logActivity } from "../lib/activity";
+import { removeVehicleStorage } from "../lib/vehicle-storage";
 import { useAuth } from "./useAuth";
 import type { Profile, UserRole } from "../types/database";
 
@@ -105,18 +106,24 @@ export function useDeleteAllVehicles() {
 }
 
 /** Permanently destroys everything in the recycle bin. This is the only
- *  action in the app that actually deletes vehicle data — images cascade
- *  with it, and inquiries survive with their vehicle link cleared. */
+ *  action in the app that actually deletes vehicle data — image rows
+ *  cascade with it, uploaded files are removed from Storage, and
+ *  inquiries survive with their vehicle link cleared. */
 export function useEmptyRecycleBin() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   return useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase
+      const { data: binned, error: listError } = await supabase
         .from("vehicles")
-        .delete()
-        .not("deleted_at", "is", null)
-        .select("id");
+        .select("id")
+        .not("deleted_at", "is", null);
+      if (listError) throw listError;
+      const ids = (binned ?? []).map((v) => v.id);
+      if (ids.length === 0) return { purged: 0 };
+
+      await removeVehicleStorage(ids);
+      const { data, error } = await supabase.from("vehicles").delete().in("id", ids).select("id");
       if (error) throw error;
       await logActivity(user?.id, "RECYCLE_BIN_EMPTIED", "vehicle", undefined, {
         purged: data?.length ?? 0,

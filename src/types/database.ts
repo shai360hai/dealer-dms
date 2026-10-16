@@ -220,3 +220,8 @@ export type ActivityLog = Database["public"]["Tables"]["activity_logs"]["Row"];
 export type FeatureFlag = Database["public"]["Tables"]["feature_flags"]["Row"];
 
 export type VehicleWithImages = Vehicle & { vehicle_images: VehicleImage[] };
+
+/** What anonymous visitors can read: every column except the internal
+ *  dealer notes (see supabase/migration-harden-security.sql). */
+export type PublicVehicle = Omit<Vehicle, "dealer_notes">;
+export type PublicVehicleWithImages = PublicVehicle & { vehicle_images: VehicleImage[] };

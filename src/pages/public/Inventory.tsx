@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { VehicleCard, Input, Button } from "../../components/ui";
-import { useVehicles, fetchPublishedBrands } from "../../hooks/useVehicles";
+import { usePublicVehicles, fetchPublishedBrands } from "../../hooks/useVehicles";
 import { usePageMeta } from "../../hooks/usePageMeta";
 import { pickCoverImage } from "../../lib/angles";
 
@@ -19,11 +19,12 @@ export default function Inventory() {
   });
 
   useEffect(() => {
-    fetchPublishedBrands().then(setBrands);
+    fetchPublishedBrands()
+      .then(setBrands)
+      .catch(() => setBrands([]));
   }, []);
 
-  const { data, isLoading } = useVehicles({
-    publishedOnly: true,
+  const { data, isLoading } = usePublicVehicles({
     q: searchParams.get("q") ?? undefined,
     brand: searchParams.get("brand") ?? undefined,
     fuelType: searchParams.get("fuelType") ?? undefined,

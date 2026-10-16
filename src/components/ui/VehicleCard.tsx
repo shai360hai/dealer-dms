@@ -6,7 +6,7 @@ import { SpecStrip } from "./SpecStrip";
 import { formatMileage, formatPrice } from "../../lib/format";
 import { cn } from "./cn";
 import { sizedImageUrl, IMAGE_SIZES } from "../../lib/image-size";
-import type { Vehicle, VehicleImage, FuelType, TransmissionType } from "../../types/database";
+import type { PublicVehicle, VehicleImage, FuelType, TransmissionType } from "../../types/database";
 
 const TRANSMISSION_LABEL: Record<TransmissionType, string> = { manual: "ידני", automatic: "אוטומטי", cvt: "CVT", dct: "DCT" };
 const FUEL_LABEL: Record<FuelType, string> = { petrol: "בנזין", diesel: "דיזל", hybrid: "היברידי", plugin_hybrid: "נטען", electric: "חשמלי" };
@@ -16,7 +16,7 @@ export function VehicleCard({
   coverImage,
   className,
 }: {
-  vehicle: Vehicle;
+  vehicle: PublicVehicle;
   coverImage?: VehicleImage;
   className?: string;
 }) {

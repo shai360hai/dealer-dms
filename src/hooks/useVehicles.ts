@@ -1,9 +1,19 @@
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
 import { slugify } from "../lib/format";
+import { sanitizeSearchTerm } from "../lib/search";
+import { PUBLIC_VEHICLE_SELECT } from "../lib/vehicle-columns";
+import { removeVehicleStorage } from "../lib/vehicle-storage";
 import { useAuth } from "./useAuth";
 import { logActivity } from "../lib/activity";
-import type { Vehicle, VehicleWithImages, VehicleStatus, FuelType, TransmissionType } from "../types/database";
+import type {
+  Vehicle,
+  VehicleWithImages,
+  PublicVehicleWithImages,
+  VehicleStatus,
+  FuelType,
+  TransmissionType,
+} from "../types/database";
 import type { VehicleFormInput } from "../lib/schemas";
 
 export interface VehicleFilters {
@@ -32,12 +42,14 @@ const SORT_MAP: Record<NonNullable<VehicleFilters["sort"]>, { column: string; as
   mileage_asc: { column: "mileage", ascending: true },
 };
 
-async function fetchVehicles(filters: VehicleFilters) {
+export type PublicVehicleFilters = Omit<VehicleFilters, "publishedOnly" | "view">;
+
+async function fetchVehicles<T>(filters: VehicleFilters, select: string) {
   const page = filters.page ?? 1;
   const pageSize = filters.pageSize ?? 20;
   const from = (page - 1) * pageSize;
 
-  let query = supabase.from("vehicles").select("*, vehicle_images(*)", { count: "exact" });
+  let query = supabase.from("vehicles").select(select, { count: "exact" });
 
   // Cast at this boundary rather than typing VehicleFilters with the enum
   // unions — these values only ever come from our own <select> options
@@ -48,7 +60,8 @@ async function fetchVehicles(filters: VehicleFilters) {
   else if (view === "deleted") query = query.not("deleted_at", "is", null);
 
   if (filters.publishedOnly) query = query.eq("published", true).eq("status", "available").is("deleted_at", null);
-  if (filters.q) query = query.or(`brand.ilike.%${filters.q}%,model.ilike.%${filters.q}%,stock_number.ilike.%${filters.q}%`);
+  const q = filters.q ? sanitizeSearchTerm(filters.q) : "";
+  if (q) query = query.or(`brand.ilike.%${q}%,model.ilike.%${q}%,stock_number.ilike.%${q}%`);
   if (filters.brand) query = query.eq("brand", filters.brand);
   if (filters.status) query = query.eq("status", filters.status as VehicleStatus);
   if (filters.fuelType) query = query.eq("fuel_type", filters.fuelType as FuelType);
@@ -62,13 +75,24 @@ async function fetchVehicles(filters: VehicleFilters) {
 
   const { data, error, count } = await query;
   if (error) throw error;
-  return { items: (data ?? []) as VehicleWithImages[], total: count ?? 0, page, pageSize };
+  return { items: (data ?? []) as unknown as T[], total: count ?? 0, page, pageSize };
 }
 
+/** Admin listing: every column, any publish state. */
 export function useVehicles(filters: VehicleFilters) {
   return useQuery({
     queryKey: ["vehicles", filters],
-    queryFn: () => fetchVehicles(filters),
+    queryFn: () => fetchVehicles<VehicleWithImages>(filters, "*, vehicle_images(*)"),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Public-site listing: published, available, not deleted — and only
+ *  the columns visitors are allowed to read. */
+export function usePublicVehicles(filters: PublicVehicleFilters) {
+  return useQuery({
+    queryKey: ["vehicles", "public", filters],
+    queryFn: () => fetchVehicles<PublicVehicleWithImages>({ ...filters, publishedOnly: true }, PUBLIC_VEHICLE_SELECT),
     placeholderData: keepPreviousData,
   });
 }
@@ -91,32 +115,34 @@ export function useVehicleBySlug(slug: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vehicles")
-        .select("*, vehicle_images(*)")
+        .select(PUBLIC_VEHICLE_SELECT)
         .eq("slug", slug!)
         .eq("published", true)
         .eq("status", "available")
+        .is("deleted_at", null)
         .maybeSingle();
       if (error) throw error;
-      return data as VehicleWithImages | null;
+      return data as unknown as PublicVehicleWithImages | null;
     },
     enabled: Boolean(slug),
   });
 }
 
-export function useSimilarVehicles(vehicle: Vehicle | null | undefined) {
+export function useSimilarVehicles(vehicle: Pick<Vehicle, "id" | "brand"> | null | undefined) {
   return useQuery({
     queryKey: ["vehicles", "similar", vehicle?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vehicles")
-        .select("*, vehicle_images(*)")
+        .select(PUBLIC_VEHICLE_SELECT)
         .eq("brand", vehicle!.brand)
         .eq("published", true)
         .eq("status", "available")
+        .is("deleted_at", null)
         .neq("id", vehicle!.id)
         .limit(4);
       if (error) throw error;
-      return (data ?? []) as VehicleWithImages[];
+      return (data ?? []) as unknown as PublicVehicleWithImages[];
     },
     enabled: Boolean(vehicle),
   });
@@ -290,7 +316,12 @@ export function useBulkDeleteVehicles() {
 }
 
 export async function fetchPublishedBrands(): Promise<string[]> {
-  const { data, error } = await supabase.from("vehicles").select("brand").eq("published", true).eq("status", "available");
+  const { data, error } = await supabase
+    .from("vehicles")
+    .select("brand")
+    .eq("published", true)
+    .eq("status", "available")
+    .is("deleted_at", null);
   if (error) throw error;
   return Array.from(new Set((data ?? []).map((v) => v.brand))).sort();
 }
@@ -324,6 +355,7 @@ export function usePurgeVehicles() {
   const { user } = useAuth();
   return useMutation({
     mutationFn: async (ids: string[]) => {
+      await removeVehicleStorage(ids);
       const { data, error } = await supabase.from("vehicles").delete().in("id", ids).select("id");
       if (error) throw error;
       await logActivity(user?.id, "VEHICLES_PURGED", "vehicle", undefined, { purged: data?.length ?? 0 });

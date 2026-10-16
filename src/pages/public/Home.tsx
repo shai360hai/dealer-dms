@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router";
 import { Search } from "lucide-react";
 import { Button, Input, VehicleCard } from "../../components/ui";
 import { InquiryForm } from "../../components/InquiryForm";
-import { useVehicles } from "../../hooks/useVehicles";
+import { usePublicVehicles } from "../../hooks/useVehicles";
 import { usePageMeta } from "../../hooks/usePageMeta";
 import { pickCoverImage } from "../../lib/angles";
 
@@ -22,8 +22,8 @@ export default function Home() {
     description: "מלאי רכבים עדכני, כולל מפרט מלא, תמונות ותנאי אחריות. תיאום נסיעת מבחן בקליק אחד.",
   });
 
-  const { data: featured } = useVehicles({ publishedOnly: true, sort: "newest", pageSize: 4 });
-  const { data: latest } = useVehicles({ publishedOnly: true, sort: "newest", pageSize: 8 });
+  const { data: featured } = usePublicVehicles({ sort: "newest", pageSize: 4 });
+  const { data: latest } = usePublicVehicles({ sort: "newest", pageSize: 8 });
 
   return (
     <div>

@@ -2,13 +2,29 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
 import type { VehicleImage } from "../types/database";
 
+/** Matches the bucket's file_size_limit in supabase/schema.sql. */
+export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Storage object key for an uploaded photo. The original file name is
+ * deliberately not used: Supabase Storage rejects keys with non-ASCII
+ * characters, so a photo named "חזית.jpg" would fail to upload.
+ */
+export function storagePathFor(vehicleId: string, file: Pick<File, "name" | "type">): string {
+  const fromName = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "";
+  const fromType = file.type.startsWith("image/") ? file.type.slice("image/".length) : "";
+  const ext = [fromName, fromType].find((e) => /^[a-z0-9]{2,5}$/.test(e)) ?? "jpg";
+  return `${vehicleId}/${crypto.randomUUID()}.${ext}`;
+}
+
 /** Uploads straight to Supabase Storage's "vehicle-images" bucket, then
  *  attaches the resulting public URL to the vehicle. */
 export function useUploadVehicleImage(vehicleId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (file: File) => {
-      const path = `${vehicleId}/${crypto.randomUUID()}-${file.name}`;
+      if (file.size > MAX_UPLOAD_BYTES) throw new Error("הקובץ גדול מ-10MB");
+      const path = storagePathFor(vehicleId, file);
       const { error: uploadError } = await supabase.storage.from("vehicle-images").upload(path, file, {
         cacheControl: "3600",
         upsert: false,
@@ -68,9 +84,14 @@ export function useReorderImages(vehicleId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (orderedIds: string[]) => {
-      await Promise.all(orderedIds.map((id, index) => supabase.from("vehicle_images").update({ order_index: index }).eq("id", id)));
+      const results = await Promise.all(
+        orderedIds.map((id, index) => supabase.from("vehicle_images").update({ order_index: index }).eq("id", id)),
+      );
+      const failed = results.find((r) => r.error);
+      if (failed?.error) throw failed.error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["vehicles", "detail", vehicleId] }),
+    // Refetch on failure too, so a half-applied reorder isn't left on screen.
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["vehicles", "detail", vehicleId] }),
   });
 }
 
@@ -78,7 +99,8 @@ export function useSetCoverImage(vehicleId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (imageId: string) => {
-      await supabase.from("vehicle_images").update({ is_cover: false }).eq("vehicle_id", vehicleId);
+      const { error: clearError } = await supabase.from("vehicle_images").update({ is_cover: false }).eq("vehicle_id", vehicleId);
+      if (clearError) throw clearError;
       const { error } = await supabase.from("vehicle_images").update({ is_cover: true }).eq("id", imageId);
       if (error) throw error;
     },

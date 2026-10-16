@@ -30,7 +30,7 @@ export default function VehicleDetail() {
   usePageMeta({
     title: vehicle ? `${vehicle.brand} ${vehicle.model} ${vehicle.year} — ${formatPrice(vehicle.price)}` : "טוען…",
     description: vehicle
-      ? vehicle.description?.slice(0, 155) ??
+      ? vehicle.description?.slice(0, 155) ||
         `${vehicle.brand} ${vehicle.model} ${vehicle.year}, ${formatMileage(vehicle.mileage)}, ${formatPrice(vehicle.price)}`
       : undefined,
     image: cover?.url,

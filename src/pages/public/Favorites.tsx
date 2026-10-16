@@ -6,7 +6,8 @@ import { supabase } from "../../lib/supabase";
 import { VehicleCard } from "../../components/ui";
 import { pickCoverImage } from "../../lib/angles";
 import { usePageMeta } from "../../hooks/usePageMeta";
-import type { VehicleWithImages } from "../../types/database";
+import { PUBLIC_VEHICLE_SELECT } from "../../lib/vehicle-columns";
+import type { PublicVehicleWithImages } from "../../types/database";
 
 const STORAGE_KEY = "dealer-dms-favorites";
 
@@ -33,13 +34,13 @@ export default function Favorites() {
       if (slugs.length === 0) return [];
       const { data, error } = await supabase
         .from("vehicles")
-        .select("*, vehicle_images(*)")
+        .select(PUBLIC_VEHICLE_SELECT)
         .in("slug", slugs)
         .eq("published", true)
         .eq("status", "available")
         .is("deleted_at", null);
       if (error) throw error;
-      return (data ?? []) as VehicleWithImages[];
+      return (data ?? []) as unknown as PublicVehicleWithImages[];
     },
     enabled: slugs.length > 0,
   });

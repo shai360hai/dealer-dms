@@ -20,6 +20,7 @@ export function ImageManager({ vehicleId, images }: { vehicleId: string; images:
   const [queue, setQueue] = useState(0);
   const [urlDraft, setUrlDraft] = useState("");
   const [urlErrors, setUrlErrors] = useState<string[]>([]);
+  const [uploadErrors, setUploadErrors] = useState<string[]>([]);
 
   const upload = useUploadVehicleImage(vehicleId);
   const addByUrl = useAddImagesByUrl(vehicleId);
@@ -31,9 +32,18 @@ export function ImageManager({ vehicleId, images }: { vehicleId: string; images:
 
   async function uploadFiles(files: FileList | File[]) {
     const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    setUploadErrors([]);
     setQueue((q) => q + list.length);
+    // One bad file must not abort the rest of the batch (or leave the
+    // spinner counting files that will never upload).
     for (const file of list) {
-      await upload.mutateAsync(file).finally(() => setQueue((q) => q - 1));
+      try {
+        await upload.mutateAsync(file);
+      } catch (err) {
+        setUploadErrors((prev) => [...prev, `${file.name} — ${(err as Error).message}`]);
+      } finally {
+        setQueue((q) => q - 1);
+      }
     }
   }
 
@@ -98,6 +108,14 @@ export function ImageManager({ vehicleId, images }: { vehicleId: string; images:
           }}
         />
       </div>
+
+      {uploadErrors.length > 0 && (
+        <ul className="mt-2 flex flex-col gap-1">
+          {uploadErrors.map((e, i) => (
+            <li key={i} className="text-xs text-[var(--color-status-sold)]">{e}</li>
+          ))}
+        </ul>
+      )}
 
       <div className="mt-3 rounded-[var(--radius-card)] border border-[var(--color-steel)] p-3">
         <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
