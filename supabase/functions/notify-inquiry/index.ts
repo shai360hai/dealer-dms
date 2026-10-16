@@ -10,9 +10,16 @@
  *   2. supabase secrets set RESEND_API_KEY=re_xxx \
  *        NOTIFY_TO=sales@yourdealer.com \
  *        NOTIFY_FROM="Dealer DMS <noreply@yourdomain.com>" \
- *        SITE_URL=https://your-site.vercel.app
+ *        SITE_URL=https://your-site.vercel.app \
+ *        WEBHOOK_SECRET=$(openssl rand -hex 32)
  *   3. supabase functions deploy notify-inquiry --no-verify-jwt
- *   4. Run supabase/migration-add-inquiry-webhook.sql to fire it on insert.
+ *   4. Run supabase/migration-add-inquiry-webhook.sql to fire it on insert,
+ *      with the same WEBHOOK_SECRET filled in.
+ *
+ * The function is deployed without JWT verification (the database
+ * trigger has no user session), which makes its URL public. The shared
+ * secret is what stops anyone else from using it to send email to the
+ * dealership's inbox.
  *
  * Failures are logged, never thrown back at the customer — the inquiry
  * is already saved by the time this runs, and a mail outage must not
@@ -33,6 +40,15 @@ interface InquiryPayload {
 }
 
 Deno.serve(async (request: Request) => {
+  const secret = Deno.env.get("WEBHOOK_SECRET");
+  if (!secret) {
+    console.error("notify-inquiry: WEBHOOK_SECRET not set — refusing all requests");
+    return new Response("not configured", { status: 500 });
+  }
+  if (!timingSafeEqual(request.headers.get("x-webhook-secret") ?? "", secret)) {
+    return new Response("unauthorized", { status: 401 });
+  }
+
   try {
     const payload = (await request.json()) as InquiryPayload;
     const inquiry = payload.record;
@@ -55,7 +71,7 @@ Deno.serve(async (request: Request) => {
       const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
       if (supabaseUrl && serviceKey) {
         const res = await fetch(
-          `${supabaseUrl}/rest/v1/vehicles?id=eq.${inquiry.vehicle_id}&select=brand,model,year,stock_number,slug`,
+          `${supabaseUrl}/rest/v1/vehicles?id=eq.${encodeURIComponent(inquiry.vehicle_id)}&select=brand,model,year,stock_number,slug`,
           { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } },
         );
         if (res.ok) {
@@ -79,7 +95,7 @@ Deno.serve(async (request: Request) => {
           <tr><td style="padding:4px 12px 4px 0;color:#4b5563">רכב</td><td style="white-space:pre-line">${escapeHtml(vehicleLine)}</td></tr>
         </table>
         ${inquiry.message ? `<p style="margin:16px 0 0"><strong>הודעה:</strong><br>${escapeHtml(inquiry.message)}</p>` : ""}
-        ${siteUrl ? `<p style="margin:20px 0 0"><a href="${siteUrl}/admin/inquiries">פתיחת הפניות בפאנל הניהול</a></p>` : ""}
+        ${siteUrl ? `<p style="margin:20px 0 0"><a href="${escapeHtml(siteUrl)}/admin/inquiries">פתיחת הפניות בפאנל הניהול</a></p>` : ""}
       </div>`;
 
     const send = await fetch("https://api.resend.com/emails", {
@@ -111,4 +127,17 @@ function escapeHtml(s: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+/** Compares without short-circuiting, so response timing doesn't leak
+ *  how much of a guessed secret was right. */
+function timingSafeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const x = enc.encode(a);
+  const y = enc.encode(b);
+  let diff = x.length ^ y.length;
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    diff |= (x[i] ?? 0) ^ (y[i] ?? 0);
+  }
+  return diff === 0;
 }

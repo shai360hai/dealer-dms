@@ -7,8 +7,12 @@
 --        supabase functions deploy notify-inquiry --no-verify-jwt
 --   2. Set its secrets (see the comment at the top of
 --      supabase/functions/notify-inquiry/index.ts).
---   3. Replace the two placeholders below, then run this file in
---      Supabase → SQL Editor.
+--   3. Replace the three placeholders below, then run this file in
+--      Supabase → SQL Editor. YOUR_WEBHOOK_SECRET must match the
+--      function's WEBHOOK_SECRET secret — it's what stops anyone on the
+--      internet from calling the (public, --no-verify-jwt) function and
+--      sending email to your sales inbox. Generate one with:
+--        openssl rand -hex 32
 
 -- pg_net makes outbound HTTP calls from Postgres. It ships with
 -- Supabase but has to be enabled once.
@@ -22,6 +26,7 @@ as $$
 declare
   function_url text := 'https://YOUR_PROJECT_REF.supabase.co/functions/v1/notify-inquiry';
   anon_key text := 'YOUR_ANON_KEY';
+  webhook_secret text := 'YOUR_WEBHOOK_SECRET';
 begin
   -- Fire-and-forget: pg_net queues the request and returns immediately,
   -- so a slow or failing mail provider can never delay or fail the
@@ -30,7 +35,8 @@ begin
     url := function_url,
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || anon_key
+      'Authorization', 'Bearer ' || anon_key,
+      'x-webhook-secret', webhook_secret
     ),
     body := jsonb_build_object(
       'type', 'INSERT',
