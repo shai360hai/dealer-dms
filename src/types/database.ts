@@ -199,6 +199,10 @@ export interface Database {
         Args: { vehicle_slug: string };
         Returns: undefined;
       };
+      inventory_value: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
+      };
     };
     Enums: {
       user_role: UserRole;

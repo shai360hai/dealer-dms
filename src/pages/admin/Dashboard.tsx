@@ -20,24 +20,30 @@ const ACTION_LABEL: Record<string, string> = {
 };
 
 export default function Dashboard() {
-  const { data, isLoading } = useDashboardStats();
+  const { data, error } = useDashboardStats();
 
   return (
     <div>
       <h1 className="mb-6 font-[family-name:var(--font-display)] text-2xl">לוח בקרה</h1>
 
+      {error && (
+        <p className="mb-4 rounded-[var(--radius-card)] bg-[color-mix(in_srgb,var(--color-status-sold)_10%,white)] px-4 py-3 text-sm text-[var(--color-status-sold)]">
+          לא ניתן לטעון את נתוני לוח הבקרה: {error.message}
+        </p>
+      )}
+
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <StatCard label="סה״כ רכבים" value={isLoading ? "—" : (data?.total ?? 0)} icon={Car} />
-        <StatCard label="זמינים" value={isLoading ? "—" : (data?.available ?? 0)} icon={CheckCircle2} />
-        <StatCard label="שמורים" value={isLoading ? "—" : (data?.reserved ?? 0)} icon={Clock} />
-        <StatCard label="נמכרו" value={isLoading ? "—" : (data?.sold ?? 0)} icon={Ban} />
-        <StatCard label="פניות חדשות" value={isLoading ? "—" : (data?.newInquiries ?? 0)} icon={MessageSquareText} accent />
+        <StatCard label="סה״כ רכבים" value={data ? data.total : "—"} icon={Car} />
+        <StatCard label="זמינים" value={data ? data.available : "—"} icon={CheckCircle2} />
+        <StatCard label="שמורים" value={data ? data.reserved : "—"} icon={Clock} />
+        <StatCard label="נמכרו" value={data ? data.sold : "—"} icon={Ban} />
+        <StatCard label="פניות חדשות" value={data ? data.newInquiries : "—"} icon={MessageSquareText} accent />
       </div>
 
       <div className="mt-4">
         <StatCard
           label="שווי המלאי (ללא רכבים שנמכרו)"
-          value={isLoading ? "—" : formatPrice(data?.totalValue ?? 0)}
+          value={data ? formatPrice(data.totalValue) : "—"}
           icon={Wallet}
         />
       </div>
@@ -100,7 +106,7 @@ export default function Dashboard() {
                 </li>
               );
             })}
-            {!isLoading && data?.recentVehicles.length === 0 && <p className="py-4 text-sm text-[var(--color-steel-dark)]">—</p>}
+            {data?.recentVehicles.length === 0 && <p className="py-4 text-sm text-[var(--color-steel-dark)]">—</p>}
           </ul>
         </Card>
 
@@ -116,7 +122,7 @@ export default function Dashboard() {
                 <span className="text-xs text-[var(--color-steel-dark)]">{timeAgo(log.created_at)}</span>
               </li>
             ))}
-            {!isLoading && data?.recentActivity.length === 0 && <p className="py-4 text-sm text-[var(--color-steel-dark)]">אין פעילות להצגה</p>}
+            {data?.recentActivity.length === 0 && <p className="py-4 text-sm text-[var(--color-steel-dark)]">אין פעילות להצגה</p>}
           </ul>
         </Card>
       </div>

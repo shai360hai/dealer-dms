@@ -368,6 +368,25 @@ $$;
 
 grant execute on function public.increment_vehicle_view(text) to anon, authenticated;
 
+-- ── Inventory value (mirrors migration-add-inventory-value.sql) ──
+-- Summed in the database so the dashboard isn't capped by PostgREST's
+-- max-rows. SECURITY INVOKER keeps RLS in charge of which vehicles count.
+create or replace function public.inventory_value()
+returns numeric
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  select coalesce(sum(price), 0)
+    from public.vehicles
+   where deleted_at is null
+     and status <> 'sold';
+$$;
+
+revoke execute on function public.inventory_value() from public, anon;
+grant execute on function public.inventory_value() to authenticated;
+
 -- ── Hardening (mirrors migration-harden-security.sql) ────────────
 
 -- ── 1. Internal dealer notes are not public ─────────────────────────

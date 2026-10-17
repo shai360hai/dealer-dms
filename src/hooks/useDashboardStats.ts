@@ -19,7 +19,7 @@ export function useDashboardStats() {
   return useQuery({
     queryKey: ["dashboard", "stats"],
     queryFn: async (): Promise<DashboardStats> => {
-      const [total, available, reserved, sold, newInquiries, recentVehicles, recentActivity, mostViewed, prices] = await Promise.all([
+      const results = await Promise.all([
         supabase.from("vehicles").select("id", { count: "exact", head: true }).is("deleted_at", null),
         supabase.from("vehicles").select("id", { count: "exact", head: true }).eq("status", "available").is("deleted_at", null),
         supabase.from("vehicles").select("id", { count: "exact", head: true }).eq("status", "reserved").is("deleted_at", null),
@@ -35,9 +35,16 @@ export function useDashboardStats() {
           .order("view_count", { ascending: false })
           .limit(5),
         // Total value of active stock — a number the dealer otherwise
-        // has to work out by hand.
-        supabase.from("vehicles").select("price").is("deleted_at", null).neq("status", "sold"),
+        // has to work out by hand. Summed in the database, since a
+        // select of every price is capped at PostgREST's max-rows.
+        supabase.rpc("inventory_value"),
       ]);
+
+      // A failed query would otherwise show up as a zero.
+      const failed = results.find((r) => r.error);
+      if (failed?.error) throw failed.error;
+
+      const [total, available, reserved, sold, newInquiries, recentVehicles, recentActivity, mostViewed, inventoryValue] = results;
 
       return {
         total: total.count ?? 0,
@@ -48,7 +55,7 @@ export function useDashboardStats() {
         recentVehicles: (recentVehicles.data ?? []) as VehicleWithImages[],
         recentActivity: (recentActivity.data ?? []) as ActivityLogWithUser[],
         mostViewed: (mostViewed.data ?? []) as VehicleWithImages[],
-        totalValue: (prices.data ?? []).reduce((sum, v) => sum + Number(v.price), 0),
+        totalValue: Number(inventoryValue.data ?? 0),
       };
     },
   });

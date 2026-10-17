@@ -45,6 +45,16 @@ begin
   raise exception 'FAIL: % — expected to be denied, but it succeeded', label;
 end $$;
 
+create function pg_temp.expect_value(r text, sub text, query text, expected numeric, label text) returns void language plpgsql as $$
+declare got numeric;
+begin
+  perform set_config('request.jwt.claim.sub', coalesce(sub, ''), true);
+  execute format('set local role %I', r);
+  execute query into got;
+  if got is distinct from expected then raise exception 'FAIL: % — expected %, got %', label, expected, got; end if;
+  raise notice 'PASS: %', label;
+end $$;
+
 -- Fixtures: one user per role, every seeded car published with notes.
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000000a', 'super@test'),
@@ -82,6 +92,15 @@ select pg_temp.expect_ok('authenticated', :editor, 'select dealer_notes from pub
 -- Admins
 select pg_temp.expect_ok('authenticated', :admin, $$update public.vehicles set deleted_at = now() where id = (select min(id::text)::uuid from public.vehicles)$$, 'admin soft-deletes a vehicle');
 select pg_temp.expect_ok('authenticated', :admin, $$update public.vehicles set deleted_at = null$$, 'admin restores vehicles');
+
+-- Inventory value: summed in the database, skipping sold and deleted
+-- cars. Known prices so the expected total doesn't depend on the seed.
+update public.vehicles set price = 100000, status = 'available', deleted_at = null;
+update public.vehicles set price = 1000000, status = 'sold' where id = (select min(id::text)::uuid from public.vehicles);
+update public.vehicles set price = 1000000, deleted_at = now() where id = (select max(id::text)::uuid from public.vehicles);
+select pg_temp.expect_value('authenticated', :editor, 'select public.inventory_value()', ((select count(*) from public.vehicles) - 2) * 100000, 'staff get the inventory value');
+select pg_temp.expect_denied('anon', null, 'select public.inventory_value()', 'anon cannot call inventory_value');
+update public.vehicles set deleted_at = null;
 
 -- Super admins
 select pg_temp.expect_denied('authenticated', :super, $$update public.profiles set role = 'admin' where email = 'super@test'$$, 'last super_admin cannot demote themselves');
